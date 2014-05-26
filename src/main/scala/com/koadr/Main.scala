@@ -6,9 +6,6 @@ import akka.util.Timeout
 import scala.concurrent.ExecutionContext.Implicits.global
 import com.koadr.ConsumerSupervisor.CreateConsumer
 
-/**
- * Created by Craig on 5/24/14.
- */
 object Main {
   def main (args: Array[String]) {
     implicit val timeout = Timeout(5 seconds)
