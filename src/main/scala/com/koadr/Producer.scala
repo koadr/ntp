@@ -65,7 +65,7 @@ class Producer extends Actor with ActorLogging {
        * 2) Stop sending messages to those consumers
        */
 
-      val unreachableConsumers = lastMsgTimePerConsumer.filter {
+      val deactivatedConsumers = lastMsgTimePerConsumer.filter {
         case (_, ts) =>
           new DateTime().
             withMillis(ts).
@@ -74,7 +74,7 @@ class Producer extends Actor with ActorLogging {
       }
 
       for {
-        (ref,_) <- unreachableConsumers
+        (ref,_) <- deactivatedConsumers
       } yield cancellablesByPub.get(ref).foreach {
         consumer =>
           log.info(s"Deactivating Messaging to ${ref.path.name}")
