@@ -18,6 +18,14 @@ class ConsumerSpec extends Specification with NoTimeConversions {
 
       keepAlive should throwA[AssertionError].not
     }
+
+    "does not send KeepAlive messages to producer if max keepalive messages are 0" in new akkaIntegration {
+      val keepAlive = EventFilter.info(s"Heartbeat: $consumerName", occurrences = 0) intercept{
+        TestActorRef[Consumer](Props(classOf[Consumer],testProducer,0), consumerName )
+      }
+
+      keepAlive should throwA[AssertionError].not
+    }
   }
 
 }

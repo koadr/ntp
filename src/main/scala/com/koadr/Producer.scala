@@ -26,15 +26,6 @@ class Producer extends Actor with ActorLogging {
   override def postStop() = cancellable.foreach(_.cancel())
 
   override def receive: Receive = {
-    // Send TimeStamp to Consumer every second
-    case SetTime => {
-      val consumer = sender()
-      cancellablesByPub += consumer -> context.system.scheduler.schedule(
-        0 seconds, timeStampDuration, new Runnable {
-          override def run(): Unit = consumer ! Time(System.currentTimeMillis())
-        }
-      )
-    }
 
     case Register => {
       val consumer = sender()
@@ -43,8 +34,11 @@ class Producer extends Actor with ActorLogging {
       // Track sender MsgTime
       lastMsgTimePerConsumer += consumer -> new DateTime().getMillis
 
+      // Track cancellable callback for stopping scheduler.
+      if (cancellable.isEmpty) cancellable = Some(context.system.scheduler.schedule(0 seconds, 0 seconds, self, Resolve ))
+
       // Start Sending Time
-      self.tell(SetTime, consumer)
+      sendTime(consumer)
     }
 
     // Set the timeout for 10 seconds on consumer ack
@@ -53,9 +47,6 @@ class Producer extends Actor with ActorLogging {
       lastMsgTimePerConsumer += sender() -> now.getMillis
 
       log.info(s"Heartbeat: ${sender().path.name}")
-
-      // Track cancellable callback for stopping scheduler.
-      if (cancellable.isEmpty) cancellable = Some(context.system.scheduler.schedule(0 seconds, 10 milliseconds, self, Resolve ))
     }
 
     case Resolve => {
@@ -84,10 +75,17 @@ class Producer extends Actor with ActorLogging {
       }
     }
   }
+
+  private def sendTime(consumer: ActorRef) {
+    cancellablesByPub += consumer -> context.system.scheduler.schedule(
+      0 seconds, timeStampDuration, new Runnable {
+        override def run(): Unit = consumer ! Time(System.currentTimeMillis())
+      }
+    )
+  }
 }
 
 object Producer {
-  case object SetTime
   case class Time(current: Long)
   case object Resolve
 }

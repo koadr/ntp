@@ -19,20 +19,6 @@ class Consumer(producer: ActorRef, maxNumberOfAcks: Int) extends Actor with Acto
 
   override def receive: Receive = {
     case Time(time) => {
-      // Send periodic acks and track cancellable callback for stopping scheduler.
-      if (cancellable.isEmpty)
-        cancellable = Some(context.system.scheduler.schedule(0 seconds, ackFrequency, new Runnable {
-          override def run(): Unit = {
-            producer ! KeepAlive
-
-            // Stop Sending acks if excededed max
-            if (counter > maxNumberOfAcks) {
-              log.error("Exceeded max KeepAlive acknowledgements")
-              cancellable.foreach(_.cancel())
-            } else counter = counter + 1
-          }
-      }))
-
       // Log Current Time
       val prettyT = new SimpleDateFormat("HH:mm:ss").format(new java.util.Date(time))
       log.info(s"Current Time is $prettyT")
@@ -47,6 +33,24 @@ class Consumer(producer: ActorRef, maxNumberOfAcks: Int) extends Actor with Acto
   def setup() {
     // Register Consumer
     producer ! Register
+    // Send KeepAlive
+    sendKeepAlive()
+  }
+
+  private def sendKeepAlive() {
+    // Send periodic acks and track cancellable callback for stopping scheduler so long as max keepalive messages are greater than 0.
+    if (cancellable.isEmpty && maxNumberOfAcks > 0)
+      cancellable = Some(context.system.scheduler.schedule(0 seconds, ackFrequency, new Runnable {
+        override def run(): Unit = {
+          producer ! KeepAlive
+
+          // Stop Sending acks if excededed max
+          if (counter >= maxNumberOfAcks) {
+            log.error("Exceeded max KeepAlive acknowledgements")
+            cancellable.foreach(_.cancel())
+          } else counter = counter + 1
+        }
+      }))
   }
 }
 
